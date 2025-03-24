@@ -1,7 +1,48 @@
 import argparse
 import requests
+import time
+import threading
+import sys
 from colorama import Fore, Style
 from bs4 import BeautifulSoup
+
+
+class Spinner:
+    """
+    Function to show and hide spinner animation
+    """
+
+    def __init__(self, message="Loading"):
+        self.spinner = ["⢿", "⣻", "⣽", "⣾", "⣷", "⣯", "⣟", "⡿"]
+        self.message = message
+        self.running = False
+        self.thread = None
+
+    def start(self):
+        if self.running:
+            return  # avoid multiple threading
+
+        self.running = True
+        self.thread = threading.Thread(target=self._animate, daemon=True)
+        self.thread.start()
+
+    def stop(self):
+        self.running = False
+        if self.thread:
+            self.thread.join()
+
+        sys.stdout.write("\r" + " " * (len(self.message) + 4) + "\r")
+        sys.stdout.flush()
+
+    def _animate(self):
+        """execute spinner animation."""
+        while self.running:
+            for frame in self.spinner:
+                if not self.running:
+                    break
+                sys.stdout.write(f"\r{self.message} {frame} ")
+                sys.stdout.flush()
+                time.sleep(0.1)  # speed
 
 
 class Functions:
@@ -17,8 +58,8 @@ class Functions:
         """
         First we try to get a custom payload provide by the user
         """
-        print(Fore.CYAN + 'Do you have a custom payload? y/n ')
-        response = input()
+        response = input(
+            Fore.CYAN + 'Do you have a custom payload? y/n: ' + Fore.WHITE)
         custom_payload = None
         if (response == 'yes' or response == 'y'):
             custom_payload = input(
@@ -37,17 +78,27 @@ class Functions:
 
         def send_payload(url, payload, results):
             test_url = f"{url}{'&' if '?' in url else '?'}id={payload}"
-            response = requests.get(test_url)
 
-            if "syntax error" in response.text.lower() or "mysql" in response.text.lower():
-                results.append(
-                    Fore.GREEN + f'Possible SQL injection in {Fore.Red + test_url}, please check')
+            try:
+                response = requests.get(test_url)
+
+                if "syntax error" in response.text.lower() or "mysql" in response.text.lower():
+                    results.append(
+                        Fore.GREEN + f'Possible SQL injection in {Fore.Red + test_url}, please check')
+
+            except Exception as ex:
+                print(Fore.Red + f'Something went wrong: {ex}')
+
+        spinner = Spinner(Fore.CYAN + 'Starting SQL injection test')
+        spinner.start()
 
         if custom_payload:
             send_payload(url=url, payload=custom_payload, results=results)
         else:
             for payload in sql_payloads:
                 send_payload(url=url, payload=payload, results=results)
+
+        spinner.stop()
 
         return results
 
@@ -58,10 +109,10 @@ def show_options():
         '2 - XSS Attack',
         '3 - Exit'
     ]
-    print(Fore.CYAN + 'Please, select and option to start:')
+    print(Fore.CYAN + 'Web OWASP Scanner options:')
     for option in options_list:
         print(option)
-    selected_option = int(input())
+    selected_option = int(input('Please, select and option: ' + Fore.WHITE))
 
     functions = Functions()
 
