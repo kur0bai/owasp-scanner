@@ -3,6 +3,7 @@ import requests
 import time
 import threading
 import sys
+from urllib.parse import urljoin
 from colorama import Fore, Style
 from bs4 import BeautifulSoup
 
@@ -35,7 +36,9 @@ class Spinner:
         sys.stdout.flush()
 
     def _animate(self):
-        """execute spinner animation."""
+        """
+        Execute spinner animation.
+        """
         while self.running:
             for frame in self.spinner:
                 if not self.running:
@@ -59,7 +62,7 @@ class Functions:
         First we try to get a custom payload provide by the user
         """
         response = input(
-            Fore.CYAN + 'Do you have a custom payload? y/n: ' + Fore.WHITE)
+            Fore.CYAN + 'Do you have a custom payload? [y/N] ' + Fore.WHITE)
         custom_payload = None
         if (response == 'yes' or response == 'y'):
             custom_payload = input(
@@ -99,6 +102,33 @@ class Functions:
                 send_payload(url=url, payload=payload, results=results)
 
         spinner.stop()
+
+        return results
+
+    def xss_test(self, url):
+        """
+        XSS attack test
+        """
+        custom_payload = self.get_custom_payload()
+        xss_payload = "<script>alert('Testing XSS')</script>"
+        forms = self.get_forms(url=url)
+        results = []
+
+        for form in forms:
+            action = form.attrs.get('action')
+            method = form.attrs.get('method', 'get').lower()
+            input = form.find_all('input')
+            target_url = urljoin(url, action)
+            data = {input_tag.get(
+                "name"): xss_payload for input_tag in inputs if input_tag.get("name")}
+
+            if method == "post":
+                response = requests.post(target_url, data=data)
+            else:
+                response = requests.get(target_url, params=data)
+
+            if xss_payload in response.text:
+                results.append(f"XSS encontrado en {target_url}")
 
         return results
 
