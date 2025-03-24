@@ -28,16 +28,28 @@ class Functions:
         return custom_payload
 
     def sqli_test(self, url):
+        """
+        SQL injection
+        """
         custom_payload = self.get_custom_payload()
         sql_payloads = ["' OR '1'='1", "' UNION SELECT null, version() --"]
         results = []
 
-        if custom_payload:
-            pass
-
-        for payload in sql_payloads:
+        def send_payload(url, payload, results):
             test_url = f"{url}{'&' if '?' in url else '?'}id={payload}"
             response = requests.get(test_url)
+
+            if "syntax error" in response.text.lower() or "mysql" in response.text.lower():
+                results.append(
+                    Fore.GREEN + f'Possible SQL injection in {Fore.Red + test_url}, please check')
+
+        if custom_payload:
+            send_payload(url=url, payload=custom_payload, results=results)
+        else:
+            for payload in sql_payloads:
+                send_payload(url=url, payload=payload, results=results)
+
+        return results
 
 
 def show_options():
@@ -55,8 +67,12 @@ def show_options():
 
     match(selected_option):
         case 1:
-            url = input(Fore.CYAN + 'Please, insert the target url')
-            functions.sqli_test(url=url)
+            url = input(
+                Fore.CYAN + 'Please, insert the target url: ' + Fore.WHITE)
+            results = functions.sqli_test(url=url)
+            print(Fore.GREEN + '---- SQL INJECTION RESULTS ----')
+            for result in results:
+                print(result)
         case 2:
             pass
         case 3:
